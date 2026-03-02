@@ -60,7 +60,7 @@ function saveSessions(sessions) {
   }
 }
 
-function getTotalsByPeriod(sessions) {
+function getTotalsByPeriod(sessions, selectedDateStr) {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -69,6 +69,16 @@ function getTotalsByPeriod(sessions) {
   let today = 0;
   let month = 0;
   let year = 0;
+  let selected = 0;
+
+  let selectedStart = null;
+  let selectedEnd = null;
+
+  if (selectedDateStr) {
+    const d = new Date(selectedDateStr);
+    selectedStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    selectedEnd = selectedStart + 24 * 60 * 60 * 1000;
+  }
 
   sessions.forEach((s) => {
     const t = new Date(s.date).getTime();
@@ -76,9 +86,12 @@ function getTotalsByPeriod(sessions) {
     if (t >= todayStart) today += total;
     if (t >= monthStart) month += total;
     if (t >= yearStart) year += total;
+    if (selectedStart != null && t >= selectedStart && t < selectedEnd) {
+      selected += total;
+    }
   });
 
-  return { today, month, year };
+  return { today, month, year, selected };
 }
 
 export default function Iiko() {
@@ -89,6 +102,9 @@ export default function Iiko() {
   const [expandedTable, setExpandedTable] = useState(null);
   const [sessions, setSessions] = useState(loadSessions);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(
+    () => new Date().toISOString().slice(0, 10)
+  );
 
   const anyRunning = tables.some((t) => t.running);
 
@@ -219,7 +235,7 @@ export default function Iiko() {
     );
   };
 
-  const totals = getTotalsByPeriod(sessions);
+  const totals = getTotalsByPeriod(sessions, selectedDate);
   const now = new Date();
   const todayStr = now.toLocaleDateString('ru-RU', {
     day: 'numeric',
@@ -228,6 +244,13 @@ export default function Iiko() {
   });
   const monthStr = now.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
   const yearStr = String(now.getFullYear());
+  const selectedDateLabel = selectedDate
+    ? new Date(selectedDate).toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : 'дата не выбрана';
 
   return (
     <div className="dashboard iiko-page iiko-tables">
@@ -269,6 +292,18 @@ export default function Iiko() {
               <div className="summary-row">
                 <span>За этот месяц ({monthStr})</span>
                 <strong>{totals.month.toLocaleString('ru-RU')} {CURRENCY}</strong>
+              </div>
+              <div className="summary-row">
+                <span>
+                  За выбранную дату ({selectedDateLabel}){' '}
+                  <input
+                    type="date"
+                    className="summary-date-input"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                </span>
+                <strong>{totals.selected.toLocaleString('ru-RU')} {CURRENCY}</strong>
               </div>
               <div className="summary-row summary-row-total">
                 <span>За этот год ({yearStr})</span>
